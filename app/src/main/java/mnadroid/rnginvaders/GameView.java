@@ -18,6 +18,8 @@ import android.view.SurfaceView;
 
 import java.io.IOException;
 
+import static mnadroid.rnginvaders.BitmapCalculations.getScaledBitmapSize;
+
 class GameView extends SurfaceView implements Runnable {
 
     //Context abspeichern
@@ -35,6 +37,9 @@ class GameView extends SurfaceView implements Runnable {
 
     //Bildschirmgröße (zum Normalisieren aller Zeichnungen)
     private int screenX, screenY;
+
+    //Wie groß muss das Rechteck sein
+    private int rectSize;
 
     //FPS
     //Um gleichmäßige Animationen auf allen Handys zu haben
@@ -150,6 +155,8 @@ class GameView extends SurfaceView implements Runnable {
     private void getSharedPreferences() {
         //Wo sind die Variablen abgespeichert?
         SharedPreferences sharedPreferences = fullContext.getSharedPreferences("AidsInvaders", 0);
+        musicOn = sharedPreferences.getBoolean("musicOn", false);
+        soundOn = sharedPreferences.getBoolean("soundOn", false);
 
     }
 
@@ -166,7 +173,13 @@ class GameView extends SurfaceView implements Runnable {
 
     //Grafiken einlesen
     private void initialiseGrafics() {
+        rectSize = getScaledBitmapSize(screenX, 1080, 100);
 
+        touchX1_finger1 = 0;
+        touchY1_finger1 = 0;
+
+        touchX1_finger2 = 0;
+        touchY1_finger2 = 0;
     }
 
 
@@ -185,15 +198,17 @@ class GameView extends SurfaceView implements Runnable {
             } catch (IllegalArgumentException e) {
                 ourHolder.unlockCanvasAndPost(canvas);
             }
+            //Tatsächliches Zeichnen
             try {
-                //Tatsächliches Zeichnen
+                //Hintergrundbild
                 paint.setColor(Color.argb(255, 255, 255, 255));
                 canvas.drawPaint(paint);
+
+                //Spielerobjekte
                 paint.setColor(Color.argb(255, 0, 0, 0));
                 paint.setStyle(Paint.Style.FILL_AND_STROKE);
-                canvas.drawRect(touchX1_finger1, touchY1_finger1, touchX1_finger1 +  400, touchY1_finger1 + 400, paint);
-                canvas.drawRect(touchX1_finger2, touchY1_finger2, touchX1_finger2 +  400, touchY1_finger2 + 400, paint);
-
+                canvas.drawRect(touchX1_finger1 - rectSize, touchY1_finger1 - rectSize, touchX1_finger1 + rectSize, touchY1_finger1 + rectSize, paint);
+                canvas.drawRect(touchX1_finger2 - rectSize, touchY1_finger2 - rectSize, touchX1_finger2 + rectSize, touchY1_finger2 + rectSize, paint);
             } catch (NullPointerException e) {
                 Log.e("DrawError", e.toString());
                 //Da es bedeutet, dass eine Grafik nicht eingelesen wurde,
