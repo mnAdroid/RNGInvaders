@@ -8,9 +8,9 @@ class Bullet {
 
     Bullet(int screenY, float startx, float starty, int length) {
         if (starty >= screenY/2)
-            speed = -1 * length*8;
+            speed = -1 * length*10;
         else
-            speed = length*8;
+            speed = length*10;
 
         Log.d("Speed", "" + speed);
         x = startx;

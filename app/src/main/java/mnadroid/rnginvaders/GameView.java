@@ -78,14 +78,16 @@ class GameView extends SurfaceView implements Runnable {
     private int lastPlayerWon;
 
     //Jeder Spieler schiesst derzeit zum selben Zeitpunkt
-    //alle 1 Sekunde
+    //alle 0,25 Sekunden
     private long bulletTimer;
     //Wie groß sind die Bullets?
     private int bulletLength, bulletWidth;
 
-    //Debug Schüsse
-    private Bullet player1Bullet;
-    private Bullet player2Bullet;
+    //BulletArray
+    //Jeder Spieler bekommt 32 Plätze zum Schiessen
+    private Bullet[] player1Bullets;
+    private Bullet[] player2Bullets;
+    private static final int BULLET_COUNT = 32;
 
     //Konstruktor
     GameView(Context context, int screenX, int screenY) {
@@ -109,6 +111,8 @@ class GameView extends SurfaceView implements Runnable {
         player1 = new Player();
         player2 = new Player();
         lastPlayerWon = -1;
+        player1Bullets = new Bullet[BULLET_COUNT];
+        player2Bullets = new Bullet[BULLET_COUNT];
     }
 
     //App wird (wieder) gestartet
@@ -215,7 +219,7 @@ class GameView extends SurfaceView implements Runnable {
 
         //Size of Bullets
         bulletWidth = getScaledBitmapSize(screenX, 1080, 25);
-        bulletLength = getScaledBitmapSize(screenY, 1920, 100);
+        bulletLength = getScaledBitmapSize(screenY, 1920, 75);
 
         //Starting positions for ships
         touchX1_finger1 = screenX/2;
@@ -237,44 +241,60 @@ class GameView extends SurfaceView implements Runnable {
     //Alle Berechnungen der App
     private void update() {
         //Neue Schüsse erstellen SHOOT!
-        if (player1Bullet == null) {
-            player1Bullet = new Bullet(screenY, touchX1_finger1, touchY1_finger1, bulletLength);
-        }
-
-        if (player2Bullet == null) {
-            player2Bullet = new Bullet(screenY, touchX1_finger2, touchY1_finger2 - rectSize, bulletLength);
+        if (System.currentTimeMillis() - bulletTimer >= 500) { //Alle 250 Millisekunden wird zurück geschossen
+            boolean tmp1 = false;
+            boolean tmp2 = false;
+            for (int i = 0; i < BULLET_COUNT; i++) {
+                if (player1Bullets[i] == null && !tmp1) {
+                    player1Bullets[i] = new Bullet(screenY, touchX1_finger1, touchY1_finger1, bulletLength);
+                    tmp1 = true;
+                }
+                if (player2Bullets[i] == null && !tmp2) {
+                    player2Bullets[i] = new Bullet(screenY, touchX1_finger2, touchY1_finger2 - rectSize, bulletLength);
+                    tmp2 = true;
+                }
+                if (tmp1 && tmp2) {
+                    bulletTimer = System.currentTimeMillis();
+                    break;
+                }
+            }
         }
 
         //Bullets bewegen sich
-        if (player1Bullet != null)
-            player1Bullet.bulletUpdate(fps);
-        if (player2Bullet != null)
-            player2Bullet.bulletUpdate(fps);
+        for (int i = 0; i < BULLET_COUNT; i++) {
+            if (player1Bullets[i] != null)
+                player1Bullets[i].bulletUpdate(fps);
+            if (player2Bullets[i] != null)
+                player2Bullets[i].bulletUpdate(fps);
+        }
 
         //Collision Detection
-        //Bullet 1 von oben
-        if (player1Bullet != null && player1Bullet.getY() >= screenY + bulletLength) { //Unten raus
-            player1Bullet = null;
-        }
-        //Spieler 2 getroffen?
-        if (player1Bullet != null && player1Bullet.getY() >= touchY1_finger2 - rectSize - bulletLength && player1Bullet.getY() < touchY1_finger2 + rectSize) { //Gegner Höhe getroffen
-            if (player1Bullet.getX() >= touchX1_finger2 - rectSize - bulletWidth && player1Bullet.getX() < touchX1_finger2 + rectSize) { //Gegner Breite getroffen
-                player1Bullet = null;
-                player2.setHitpoints(-10);
+        for (int i = 0; i < BULLET_COUNT; i++) {
+            //Bullet von Player1 kommen von oben
+            if (player1Bullets[i] != null && player1Bullets[i].getY() >= screenY + bulletLength) { //Unten raus
+                player1Bullets[i] = null;
+            }
+            //Spieler 2 getroffen?
+            if (player1Bullets[i] != null && player1Bullets[i].getY() >= touchY1_finger2 - rectSize - bulletLength && player1Bullets[i].getY() < touchY1_finger2 + rectSize) { //Gegner Höhe getroffen
+                if (player1Bullets[i].getX() >= touchX1_finger2 - rectSize - bulletWidth && player1Bullets[i].getX() < touchX1_finger2 + rectSize) { //Gegner Breite getroffen
+                    player1Bullets[i] = null;
+                    player2.setHitpoints(-10);
+                }
+            }
+
+            //Bullet von Player2 kommen von unten
+            if (player2Bullets[i] != null && player2Bullets[i].getY() < -bulletLength) { //Oben raus
+                player2Bullets[i] = null;
+            }
+            //Spieler 1 getroffen?
+            if (player2Bullets[i] != null && player2Bullets[i].getY() >= touchY1_finger1 - rectSize - bulletLength && player2Bullets[i].getY() < touchY1_finger1 + rectSize) { //Gegner Höhe getroffen
+                if (player2Bullets[i].getX() >= touchX1_finger1 - rectSize - bulletWidth && player2Bullets[i].getX() < touchX1_finger1 + rectSize) { //Gegner Breite getroffen
+                    player2Bullets[i] = null;
+                    player1.setHitpoints(-10);
+                }
             }
         }
 
-        //Bullet 2 von unten
-        if (player2Bullet != null && player2Bullet.getY() < -bulletLength) { //Oben raus
-            player2Bullet = null;
-        }
-        //Spieler 1 getroffen?
-        if (player2Bullet != null && player2Bullet.getY() >= touchY1_finger1 - rectSize - bulletLength && player2Bullet.getY() < touchY1_finger1 + rectSize) { //Gegner Höhe getroffen
-            if (player2Bullet.getX() >= touchX1_finger1 - rectSize - bulletWidth && player2Bullet.getX() < touchX1_finger1 + rectSize) { //Gegner Breite getroffen
-                player2Bullet = null;
-                player1.setHitpoints(-10);
-            }
-        }
         //died player 1?
         if (player1.getHitpoints() <= 0) {
             player1.resetHitpoints();
@@ -313,11 +333,19 @@ class GameView extends SurfaceView implements Runnable {
                 canvas.drawRect(touchX1_finger2 - rectSize, touchY1_finger2 - rectSize, touchX1_finger2 + rectSize, touchY1_finger2 + rectSize, paint);
 
                 //Bullets
+                for (int i = 0; i < BULLET_COUNT; i++) {
+                    if (player1Bullets[i] != null) {
+                        paint.setColor(Color.argb(255, 0, 0, 200));
+                        canvas.drawRect(player1Bullets[i].getX(), player1Bullets[i].getY(), player1Bullets[i].getX() + bulletWidth, player1Bullets[i].getY() + bulletLength, paint);
+                    }
+                    if (player2Bullets[i] != null) {
+                        paint.setColor(Color.argb(255, 200, 0, 0));
+                        canvas.drawRect(player2Bullets[i].getX(), player2Bullets[i].getY(), player2Bullets[i].getX() + bulletWidth, player2Bullets[i].getY() + bulletLength, paint);
+                    }
+
+                }
+                //Textfarbe
                 paint.setColor(Color.argb(255, 100, 100, 100));
-                if (player1Bullet != null)
-                    canvas.drawRect(player1Bullet.getX(), player1Bullet.getY(), player1Bullet.getX() + bulletWidth, player1Bullet.getY() + bulletLength, paint);
-                if (player2Bullet != null)
-                    canvas.drawRect(player2Bullet.getX(), player2Bullet.getY(), player2Bullet.getX() + bulletWidth, player2Bullet.getY() + bulletLength, paint);
 
                 //Score
                 if (player1 != null && player2 != null) {
