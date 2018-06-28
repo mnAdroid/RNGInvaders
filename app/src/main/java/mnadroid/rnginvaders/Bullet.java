@@ -6,21 +6,19 @@ class Bullet {
     private float x, y;
     private float speed;
 
-    Bullet(int screenY, float startx, float starty, long fps, int length) {
-        fps = 24;
-
+    Bullet(int screenY, float startx, float starty, int length) {
         if (starty >= screenY/2)
-            speed = -1 * (length*2) / fps;
+            speed = -1 * length*8;
         else
-            speed = (length*2) / fps;
+            speed = length*8;
 
         Log.d("Speed", "" + speed);
         x = startx;
         y = starty;
     }
 
-    void bulletUpdate() {
-        y += speed;
+    void bulletUpdate(long fps) {
+        y += speed / fps;
     }
 
     float getX() {

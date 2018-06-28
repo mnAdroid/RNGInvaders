@@ -238,18 +238,18 @@ class GameView extends SurfaceView implements Runnable {
     private void update() {
         //Neue Schüsse erstellen SHOOT!
         if (player1Bullet == null) {
-            player1Bullet = new Bullet(screenY, touchX1_finger1, touchY1_finger1, fps, bulletLength);
+            player1Bullet = new Bullet(screenY, touchX1_finger1, touchY1_finger1, bulletLength);
         }
 
         if (player2Bullet == null) {
-            player2Bullet = new Bullet(screenY, touchX1_finger2, touchY1_finger2 - rectSize, fps, bulletLength);
+            player2Bullet = new Bullet(screenY, touchX1_finger2, touchY1_finger2 - rectSize, bulletLength);
         }
 
         //Bullets bewegen sich
         if (player1Bullet != null)
-            player1Bullet.bulletUpdate();
+            player1Bullet.bulletUpdate(fps);
         if (player2Bullet != null)
-            player2Bullet.bulletUpdate();
+            player2Bullet.bulletUpdate(fps);
 
         //Collision Detection
         //Bullet 1 von oben
