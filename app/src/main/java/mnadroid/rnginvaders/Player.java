@@ -14,4 +14,8 @@ class Player {
     void setHitpoints(int hitpoints) {
         this.hitpoints += hitpoints;
     }
+
+    public void resetHitpoints() {
+        hitpoints = 100;
+    }
 }

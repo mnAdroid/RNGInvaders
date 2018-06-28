@@ -10,9 +10,9 @@ class Bullet {
         fps = 24;
 
         if (starty >= screenY/2)
-            speed = -1 * length / fps;
+            speed = -1 * (length*2) / fps;
         else
-            speed = length / fps;
+            speed = (length*2) / fps;
 
         Log.d("Speed", "" + speed);
         x = startx;

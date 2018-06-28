@@ -19,6 +19,7 @@ import android.view.SurfaceView;
 import java.io.IOException;
 
 import static mnadroid.rnginvaders.BitmapCalculations.getScaledBitmapSize;
+import static mnadroid.rnginvaders.BitmapCalculations.getScaledCoordinates;
 
 class GameView extends SurfaceView implements Runnable {
 
@@ -40,6 +41,9 @@ class GameView extends SurfaceView implements Runnable {
 
     //Wie groß muss das Rechteck sein
     private int rectSize;
+
+    //Texte
+    private int textSize, textSizeBig, scoreX, scoreY;
 
     //FPS
     //Um gleichmäßige Animationen auf allen Handys zu haben
@@ -71,6 +75,7 @@ class GameView extends SurfaceView implements Runnable {
 
     //Spielerobjekte
     private Player player1, player2;
+    private int lastPlayerWon;
 
     //Jeder Spieler schiesst derzeit zum selben Zeitpunkt
     //alle 1 Sekunde
@@ -103,6 +108,7 @@ class GameView extends SurfaceView implements Runnable {
         //Spieler erzeugen
         player1 = new Player();
         player2 = new Player();
+        lastPlayerWon = -1;
     }
 
     //App wird (wieder) gestartet
@@ -168,11 +174,11 @@ class GameView extends SurfaceView implements Runnable {
             //Start des Frames wird gespeichert
             long startFrameTime = System.currentTimeMillis();
 
-            //Alle Berechnungen werden begangen
-            update();
-
             //Alles wird gezeichnet
             draw();
+
+            //Alle Berechnungen werden begangen
+            update();
 
             //FPS Berechnung
             long timeThisFrame = System.currentTimeMillis() - startFrameTime;
@@ -212,24 +218,32 @@ class GameView extends SurfaceView implements Runnable {
         bulletLength = getScaledBitmapSize(screenY, 1920, 100);
 
         //Starting positions for ships
-        touchX1_finger1 = 0;
+        touchX1_finger1 = screenX/2;
         touchY1_finger1 = 0;
 
-        touchX1_finger2 = 0;
-        touchY1_finger2 = 0;
-    }
+        touchX1_finger2 = screenX/2;
+        touchY1_finger2 = screenY;
 
+        //Textproperties
+        textSize = getScaledBitmapSize(screenX, 1080, 50);
+        textSizeBig = getScaledBitmapSize(screenX, 1080, 100);
+
+        scoreX = getScaledCoordinates(screenX, 1080, screenX/2);
+        scoreY = getScaledCoordinates(screenY, 1920, screenY/2);
+
+        paint.setTextAlign(Paint.Align.CENTER);
+    }
 
     //Alle Berechnungen der App
     private void update() {
         //Neue Schüsse erstellen SHOOT!
         if (player1Bullet == null) {
             player1Bullet = new Bullet(screenY, touchX1_finger1, touchY1_finger1, fps, bulletLength);
-            Log.d("Bullet 1", "erstellt");
         }
 
-        if (player2Bullet == null)
-            player2Bullet = new Bullet(screenY, touchX1_finger2, touchY1_finger2, fps, bulletLength);
+        if (player2Bullet == null) {
+            player2Bullet = new Bullet(screenY, touchX1_finger2, touchY1_finger2 - rectSize, fps, bulletLength);
+        }
 
         //Bullets bewegen sich
         if (player1Bullet != null)
@@ -238,22 +252,40 @@ class GameView extends SurfaceView implements Runnable {
             player2Bullet.bulletUpdate();
 
         //Collision Detection
-        //Bullet 1
+        //Bullet 1 von oben
         if (player1Bullet != null && player1Bullet.getY() >= screenY + bulletLength) { //Unten raus
             player1Bullet = null;
-            Log.d("Bullet 1", "gelöscht");
         }
-        if (player1Bullet != null && player1Bullet.getY() < -bulletLength) { //Oben raus
-            player1Bullet = null;
-            Log.d("Bullet 1", "gelöscht");
+        //Spieler 2 getroffen?
+        if (player1Bullet != null && player1Bullet.getY() >= touchY1_finger2 - rectSize - bulletLength && player1Bullet.getY() < touchY1_finger2 + rectSize) { //Gegner Höhe getroffen
+            if (player1Bullet.getX() >= touchX1_finger2 - rectSize - bulletWidth && player1Bullet.getX() < touchX1_finger2 + rectSize) { //Gegner Breite getroffen
+                player1Bullet = null;
+                player2.setHitpoints(-10);
+            }
         }
 
-        //Bullet 2
-        if (player2Bullet != null && player2Bullet.getY() >= screenY + bulletLength) { //Unten raus
-            player2Bullet = null;
-        }
+        //Bullet 2 von unten
         if (player2Bullet != null && player2Bullet.getY() < -bulletLength) { //Oben raus
             player2Bullet = null;
+        }
+        //Spieler 1 getroffen?
+        if (player2Bullet != null && player2Bullet.getY() >= touchY1_finger1 - rectSize - bulletLength && player2Bullet.getY() < touchY1_finger1 + rectSize) { //Gegner Höhe getroffen
+            if (player2Bullet.getX() >= touchX1_finger1 - rectSize - bulletWidth && player2Bullet.getX() < touchX1_finger1 + rectSize) { //Gegner Breite getroffen
+                player2Bullet = null;
+                player1.setHitpoints(-10);
+            }
+        }
+        //died player 1?
+        if (player1.getHitpoints() <= 0) {
+            player1.resetHitpoints();
+            player2.resetHitpoints();
+            lastPlayerWon = 1;
+        }
+        //died player 2?
+        if (player2.getHitpoints() <= 0) {
+            player1.resetHitpoints();
+            player2.resetHitpoints();
+            lastPlayerWon = 2;
         }
     }
 
@@ -286,6 +318,18 @@ class GameView extends SurfaceView implements Runnable {
                     canvas.drawRect(player1Bullet.getX(), player1Bullet.getY(), player1Bullet.getX() + bulletWidth, player1Bullet.getY() + bulletLength, paint);
                 if (player2Bullet != null)
                     canvas.drawRect(player2Bullet.getX(), player2Bullet.getY(), player2Bullet.getX() + bulletWidth, player2Bullet.getY() + bulletLength, paint);
+
+                //Score
+                if (player1 != null && player2 != null) {
+                    paint.setTextSize(textSizeBig);
+                    canvas.drawText("" + player1.getHitpoints() + " vs " + player2.getHitpoints(), scoreX, scoreY, paint);
+                }
+
+                //is there a recent winner?
+                if(lastPlayerWon > 0) {
+                    paint.setTextSize(textSize);
+                    canvas.drawText("Player " + lastPlayerWon + " won!", scoreX, scoreY + bulletLength, paint);
+                }
 
             } catch (NullPointerException e) {
                 Log.e("DrawError", e.toString());
@@ -341,11 +385,11 @@ class GameView extends SurfaceView implements Runnable {
                     pointerIndex = i;
                     pointerId = motionEvent.getPointerId(pointerIndex);
                     //Spieler 1
-                    if (pointerId == finger1_index && motionEvent.getY(pointerIndex) <= screenY/2) {
+                    if (pointerId == finger1_index && motionEvent.getY(pointerIndex) < screenY/2 - rectSize) {
                         touchX1_finger1 = motionEvent.getX(pointerIndex);
                         touchY1_finger1 = motionEvent.getY(pointerIndex);
                     }
-                    else if (pointerId == finger2_index && motionEvent.getY(pointerIndex) > screenY/2) {
+                    else if (pointerId == finger2_index && motionEvent.getY(pointerIndex) > screenY/2 + rectSize) {
                         touchX1_finger2 = motionEvent.getX(pointerIndex);
                         touchY1_finger2 = motionEvent.getY(pointerIndex);
                     }
