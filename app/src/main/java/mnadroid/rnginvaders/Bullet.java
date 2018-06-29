@@ -12,7 +12,6 @@ class Bullet {
         else
             speed = length*50;
 
-        Log.d("Speed", "" + speed);
         x = startx;
         y = starty;
     }

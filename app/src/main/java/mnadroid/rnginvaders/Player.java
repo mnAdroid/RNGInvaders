@@ -31,15 +31,12 @@ class Player {
         float dx = shipX - fingerX;
         float dy = shipY - fingerY;
 
+        //Normalisierung der dx und dy damit insgesamt immer
+        //maximal speed bewegt wird und es keine random jumps gibt
         float speedX, speedY;
 
         speedX = (dx / (Math.abs(dx) + Math.abs(dy)))*speed;
-        speedY = (dy / (Math.abs(dx) + Math.abs(dy)))*speed;
-
-        Log.d("speed", "" + speed);
-        Log.d("dx importance", "" + (dx / (Math.abs(dx) + Math.abs(dy))));
-        Log.d("dy importance", "" + (dy / (Math.abs(dx) + Math.abs(dy))));
-        Log.d("speedCalc", "" + ((dx / (Math.abs(dx) + Math.abs(dy)))*speed + (dy / (Math.abs(dx) + Math.abs(dy)))*speed));
+        speedY = (dy / (Math.abs(dx) + Math.abs(dy)))*speed; //speedX + speedY = speed
 
         //Wenn es nicht weit weg ist kann man einfach auf Finger setzen
         if (Math.abs(dx) + Math.abs(dy) <= speed/fps) {

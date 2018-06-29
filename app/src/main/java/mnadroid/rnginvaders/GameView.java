@@ -7,6 +7,7 @@ import android.content.res.AssetManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.SoundPool;
@@ -51,13 +52,19 @@ class GameView extends SurfaceView implements Runnable {
 
     //Boolean ob Spiel gerade läuft oder gepaused ist
     //volatile ist quasi ein synchronised ohne overhead
-    private volatile boolean isPlaying;
+    private volatile boolean isOpen;
 
     //Sind alle Elemente geladen
     private boolean loaded;
     //Ist gerade Pause?
     private boolean pause;
     private long pauseTimer; //Um gleichmäßiges Schießsen trotz Pause zu ermöglichen
+    //Menu
+    private boolean menu;
+
+    //Play Button im Main Menu
+    private Rect menuPlayButton;
+    private float menuPlayTextX, menuPlayTextY;
 
     //Musiksettings
     private boolean musicOn;
@@ -76,7 +83,7 @@ class GameView extends SurfaceView implements Runnable {
 
     //Spielerobjekte
     private Player player1, player2;
-    private int lastPlayerWon;
+    private int player1WinCount, player2WinCount;
 
     //Jeder Spieler schiesst derzeit zum selben Zeitpunkt
     //alle 0,25 Sekunden
@@ -109,19 +116,23 @@ class GameView extends SurfaceView implements Runnable {
         paint = new Paint();
 
         //Spieler erzeugen
-        lastPlayerWon = -1;
+        player1WinCount = 0;
+        player2WinCount = 0;
         player1Bullets = new Bullet[BULLET_COUNT];
         player2Bullets = new Bullet[BULLET_COUNT];
     }
 
     //App wird (wieder) gestartet
     void resume() {
-        isPlaying = true;
+        isOpen = true;
         pause = true;
         pauseTimer = System.currentTimeMillis();
 
         //gespeicherte Variablen auslesen
         getSharedPreferences();
+
+        //DEBUG
+        menu = true;
 
         //Gamethread starten
         gameThread = new Thread(this);
@@ -138,7 +149,7 @@ class GameView extends SurfaceView implements Runnable {
 
     //App wird geschlossen
     void pause() {
-        isPlaying = false;
+        isOpen = false;
 
         //Variablen abspeichern
         setSharedPrefernces();
@@ -172,28 +183,39 @@ class GameView extends SurfaceView implements Runnable {
     //run() ist quasi eine Endlosschleife (solange das Game läuft) in dem alles passiert
     @Override
     public void run() {
-        while (isPlaying) {
+        while (isOpen) {
             if (!loaded) {
                 continue;
             }
-
-            //Start des Frames wird gespeichert
-            long startFrameTime = System.currentTimeMillis();
-
-            //Alles wird gezeichnet
-            draw();
-
-            if (!pause) {
-                //Alle Berechnungen werden begangen
-                update();
-            }
-
-            //FPS Berechnung
-            long timeThisFrame = System.currentTimeMillis() - startFrameTime;
-            if (timeThisFrame > 0) {
-                fps = 1000 / timeThisFrame;
-            }
+            if (menu)
+                runMenu();
+            else
+                runGame();
         }
+    }
+
+    private void runGame() {
+        //Start des Frames wird gespeichert
+        long startFrameTime = System.currentTimeMillis();
+
+        //Alles wird gezeichnet
+        drawGame();
+
+        if (!pause) {
+            //Alle Berechnungen werden begangen
+            updateGame();
+        }
+
+        //FPS Berechnung
+        long timeThisFrame = System.currentTimeMillis() - startFrameTime;
+        if (timeThisFrame > 0) {
+            fps = 1000 / timeThisFrame;
+        }
+    }
+
+    private void runMenu() {
+        //Menu wird gezeichnet
+        drawMenu();
     }
 
     //Gespeicherte Variablen auslesen
@@ -202,7 +224,7 @@ class GameView extends SurfaceView implements Runnable {
         SharedPreferences sharedPreferences = fullContext.getSharedPreferences("AidsInvaders", 0);
         musicOn = sharedPreferences.getBoolean("musicOn", false);
         soundOn = sharedPreferences.getBoolean("soundOn", false);
-
+        menu = sharedPreferences.getBoolean("menu", true);
     }
 
     //Variablen Speichern
@@ -211,6 +233,11 @@ class GameView extends SurfaceView implements Runnable {
         SharedPreferences sharedPreferences = fullContext.getSharedPreferences("AidsInvaders", 0);
         //Editor initialisieren (um Daten zu speichern)
         SharedPreferences.Editor editor = sharedPreferences.edit();
+
+        //Variablen in den Editor schreiben
+        editor.putBoolean("musicOn", musicOn);
+        editor.putBoolean("soundOn", soundOn);
+        editor.putBoolean("menu", menu);
 
         //Editor abspeichern
         editor.apply();
@@ -227,7 +254,7 @@ class GameView extends SurfaceView implements Runnable {
 
         //Starting positions for ships
         touchX1_finger1 = screenX/2;
-        touchY1_finger1 = 0 + rectSize + bulletLength;
+        touchY1_finger1 = rectSize + bulletLength;
 
         touchX1_finger2 = screenX/2;
         touchY1_finger2 = screenY - rectSize - bulletLength;
@@ -243,10 +270,17 @@ class GameView extends SurfaceView implements Runnable {
         scoreY = getScaledCoordinates(screenY, 1920, screenY/2);
 
         paint.setTextAlign(Paint.Align.CENTER);
+
+        //Menu
+        menuPlayButton = new Rect(getScaledBitmapSize(screenX, 1080, 200), 2*screenY/3,
+                getScaledBitmapSize(screenX, 1080, 880), 2*screenY/3 + getScaledCoordinates(screenY, 1920, 300));
+
+        menuPlayTextX = screenX/2;
+        menuPlayTextY = 2*screenY/3 + getScaledCoordinates(screenY, 1920, 190);
     }
 
     //Alle Berechnungen der App
-    private void update() {
+    private void updateGame() {
         //Spieler Schiffe
         player1.updateShip(touchX1_finger1, touchY1_finger1, fps);
         player2.updateShip(touchX1_finger2, touchY1_finger2, fps);
@@ -264,12 +298,12 @@ class GameView extends SurfaceView implements Runnable {
             for (int i = 0; i < BULLET_COUNT; i++) {
                 //Bullets von Player1 kommen von oben
                 if (player1Bullets[i] == null && !tmp1) {
-                    player1Bullets[i] = new Bullet(screenY, player1.getShipX() - (bulletWidth / 2), player1.getShipY() + rectSize, bulletLength);
+                    player1Bullets[i] = new Bullet(screenY + rectSize, player1.getShipX() - (bulletWidth / 2), player1.getShipY() + rectSize, bulletLength);
                     tmp1 = true;
                 }
                 //Bullets von Player2 kommen von unten
                 if (player2Bullets[i] == null && !tmp2) {
-                    player2Bullets[i] = new Bullet(screenY, player2.getShipX() - (bulletWidth / 2), player2.getShipY() - rectSize - bulletLength, bulletLength);
+                    player2Bullets[i] = new Bullet(screenY - rectSize - bulletLength, player2.getShipX() - (bulletWidth / 2), player2.getShipY() - rectSize - bulletLength, bulletLength);
                     tmp2 = true;
                 }
                 if (tmp1 && tmp2) {
@@ -316,14 +350,13 @@ class GameView extends SurfaceView implements Runnable {
 
         //died player 1?
         if (player1.getHitpoints() <= 0) {
+            player1WinCount++;
             finishGame();
-            lastPlayerWon = 1;
-
         }
         //died player 2?
         if (player2.getHitpoints() <= 0) {
+            player2WinCount++;
             finishGame();
-            lastPlayerWon = 2;
         }
     }
 
@@ -335,10 +368,14 @@ class GameView extends SurfaceView implements Runnable {
             player1Bullets[i] = null;
             player2Bullets[i] = null;
         }
+
+        if(player1WinCount >= 2 || player2WinCount >= 2) {
+            menu = true;
+        }
     }
 
     //Alle Zeichnungen der App
-    private void draw() {
+    private void drawGame() {
         //Standardfehlerabfangen
         if (ourHolder.getSurface().isValid()) {
             try {
@@ -375,17 +412,74 @@ class GameView extends SurfaceView implements Runnable {
                 //Textfarbe
                 paint.setColor(Color.argb(255, 100, 100, 100));
 
-                //Score
+                //Hitpoints
                 if (player1 != null && player2 != null) {
                     paint.setTextSize(textSizeBig);
-                    canvas.drawText("" + player1.getHitpoints() + " vs " + player2.getHitpoints(), scoreX, scoreY, paint);
+                    canvas.drawText(player1.getHitpoints() + " vs " + player2.getHitpoints(), scoreX, scoreY + textSizeBig, paint);
+                    canvas.rotate(-180, scoreX, scoreY); //kommt an den Rand
+                    canvas.drawText(player1.getHitpoints() + " vs " + player2.getHitpoints(), scoreX, scoreY + textSizeBig, paint);
+                    canvas.rotate(180, scoreX, scoreY); //kommt an den Rand
+                }
+                //Score Links
+                paint.setTextSize(textSize);
+                canvas.rotate(-90, scoreX, scoreY); //kommt an den Rand
+                canvas.drawText(player1WinCount + " vs " + player2WinCount, scoreX, scoreY/2, paint);
+                canvas.rotate(90, scoreX, scoreY); //reset
+
+                //Score Rechts
+                canvas.rotate(90, scoreX, scoreY); //kommt an den Rand
+                canvas.drawText(player2WinCount + " vs " + player1WinCount, scoreX, scoreY/2, paint);
+                canvas.rotate(-90, scoreX, scoreY); //reset
+            } catch (NullPointerException e) {
+                Log.e("DrawError", e.toString());
+                //Da es bedeutet, dass eine Grafik nicht eingelesen wurde,
+                //machen wir das einfach nochmal
+                initialiseGrafics();
+            }
+            //Alles auf den Bildschirm malen
+            //Und Canvas wieder freilassen
+            ourHolder.unlockCanvasAndPost(canvas);
+        }
+    }
+
+    //Menu
+    private void drawMenu() {
+        //Standardfehlerabfangen
+        if (ourHolder.getSurface().isValid()) {
+            try {
+                //canvas wird das Zeichenobjekt
+                canvas = ourHolder.lockCanvas();
+            } catch (IllegalArgumentException e) {
+                ourHolder.unlockCanvasAndPost(canvas);
+                Log.e("UnlockCanvasError", e.toString());
+            }
+            //Tatsächliches Zeichnen
+            try {
+                //Hintergrundbild
+                paint.setColor(Color.argb(255, 255, 255, 255));
+                canvas.drawPaint(paint);
+
+                //Textfarbe
+                paint.setColor(Color.argb(255, 100, 100, 100));
+
+                paint.setTextSize(textSizeBig);
+                canvas.drawText("AIDS INVADERS" , scoreX, scoreY/2, paint);
+
+                canvas.drawText("PLAY!", menuPlayTextX, menuPlayTextY, paint);
+
+                if (menuPlayButton != null) {
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(20);
+                    canvas.drawRect(menuPlayButton, paint);
+                    paint.setStrokeWidth(0);
+                    paint.setStyle(Paint.Style.FILL_AND_STROKE);
                 }
 
-                //is there a recent winner?
-                if(lastPlayerWon > 0) {
-                    paint.setTextSize(textSize);
-                    canvas.drawText("Player " + lastPlayerWon + " won!", scoreX, scoreY + 3 * bulletLength, paint);
-                }
+                paint.setTextSize(textSize);
+                if (player1WinCount > player2WinCount)
+                    canvas.drawText("Player 1 WON!", scoreX, scoreY/2 + textSizeBig, paint);
+                else
+                    canvas.drawText("Player 2 WON!", scoreX, scoreY/2 + textSizeBig, paint);
 
             } catch (NullPointerException e) {
                 Log.e("DrawError", e.toString());
@@ -402,6 +496,14 @@ class GameView extends SurfaceView implements Runnable {
     //Was passiert wenn man den Touchscreen berührt?
     @Override
     public boolean onTouchEvent(MotionEvent motionEvent) {
+        if (menu)
+            return onTouchMenu(motionEvent);
+        else
+            return onTouchGame(motionEvent);
+    }
+
+    //Touch im Spiel
+    private boolean onTouchGame(MotionEvent motionEvent) {
         int pointerIndex;
         int pointerId;
 
@@ -420,7 +522,7 @@ class GameView extends SurfaceView implements Runnable {
             //Spieler berührt den Bildschirm
             case MotionEvent.ACTION_DOWN:
                 //Spieler 1 ist untere Hälfte
-                if (finger1_index == INVALID_POINTER_ID && motionEvent.getY(pointerIndex) <= screenY/2) {
+                if (finger1_index == INVALID_POINTER_ID && motionEvent.getY(pointerIndex) < screenY/2) {
                     touchX1_finger1 = motionEvent.getX(pointerIndex);
                     touchY1_finger1 = motionEvent.getY(pointerIndex);
 
@@ -442,12 +544,16 @@ class GameView extends SurfaceView implements Runnable {
                     pointerIndex = i;
                     pointerId = motionEvent.getPointerId(pointerIndex);
                     //Spieler 1
-                    if (pointerId == finger1_index && motionEvent.getY(pointerIndex) < screenY/2 - rectSize) {
+                    if (pointerId == finger1_index)
                         touchX1_finger1 = motionEvent.getX(pointerIndex);
+                    if (pointerId == finger1_index && motionEvent.getY(pointerIndex) < screenY/2 - rectSize) {
                         touchY1_finger1 = motionEvent.getY(pointerIndex);
+                        continue;
                     }
-                    else if (pointerId == finger2_index && motionEvent.getY(pointerIndex) > screenY/2 + rectSize) {
+                    //Spieler 2
+                    if (pointerId == finger2_index)
                         touchX1_finger2 = motionEvent.getX(pointerIndex);
+                    if (pointerId == finger2_index && motionEvent.getY(pointerIndex) > screenY/2 + rectSize) {
                         touchY1_finger2 = motionEvent.getY(pointerIndex);
                     }
                 }
@@ -455,14 +561,14 @@ class GameView extends SurfaceView implements Runnable {
             //Zweiter Finger kommt dazu:
             case MotionEvent.ACTION_POINTER_DOWN:
                 //Spieler 1 kommt dazu
-                if (finger1_index == INVALID_POINTER_ID && motionEvent.getY(pointerIndex) <= screenY/2) { //&& motionEvent.getY(pointerIndex) <= screenY/2
+                if (finger1_index == INVALID_POINTER_ID && motionEvent.getY(pointerIndex) < screenY/2) {
                     touchX1_finger1 = motionEvent.getX(pointerIndex);
                     touchY1_finger1 = motionEvent.getY(pointerIndex);
 
                     finger1_index = pointerId;
                 }
                 //Spieler 2 kommt dazu
-                else if (finger2_index == INVALID_POINTER_ID && motionEvent.getY(pointerIndex) > screenY/2) { // && motionEvent.getY(pointerIndex) > screenY/2
+                else if (finger2_index == INVALID_POINTER_ID && motionEvent.getY(pointerIndex) > screenY/2) {
                     touchX1_finger2 = motionEvent.getX(pointerIndex);
                     touchY1_finger2 = motionEvent.getY(pointerIndex);
 
@@ -470,7 +576,7 @@ class GameView extends SurfaceView implements Runnable {
                 }
                 //Dritter Finger wird ignoriert
                 return true;
-                //https://android-developers.googleblog.com/2010/06/making-sense-of-multitouch.html
+            //https://android-developers.googleblog.com/2010/06/making-sense-of-multitouch.html
             //Finger wird vom Bildschirm genommen:
             case MotionEvent.ACTION_UP:
                 //Wenn es einer der Spielerfinger ist: Pause
@@ -481,7 +587,7 @@ class GameView extends SurfaceView implements Runnable {
                     pauseTimer = System.currentTimeMillis();
                 }
 
-                 else if (pointerId == finger2_index) {
+                else if (pointerId == finger2_index) {
                     //onBackPressed();
                     finger2_index = INVALID_POINTER_ID;
                     pause = true;
@@ -508,6 +614,25 @@ class GameView extends SurfaceView implements Runnable {
 
                 return true;
         }
+        return false;
+    }
+    //Touch im Menü
+    private boolean onTouchMenu(MotionEvent motionEvent) {
+        //Alle Arten von Bewegung (auf dem Screen) die man bearbeiten will
+        switch (motionEvent.getAction() & MotionEvent.ACTION_MASK) {
+
+            //Spieler berührt den Bildschirm
+            case MotionEvent.ACTION_DOWN:
+                float touchX = motionEvent.getX();
+                float touchY = motionEvent.getY();
+
+                if (menuPlayButton.top <= touchY && menuPlayButton.bottom >= touchY
+                        && menuPlayButton.left <= touchX && menuPlayButton.right >= touchX) {
+                    initialiseGame();
+                }
+                return true;
+        }
+
         return false;
     }
 
@@ -572,5 +697,23 @@ class GameView extends SurfaceView implements Runnable {
                 Log.e("gamemode1 Error", e.toString());
             }
         }
+    }
+
+    private void initialiseGame() {
+        //Starting positions for ships
+        touchX1_finger1 = screenX/2;
+        touchY1_finger1 = rectSize + bulletLength;
+
+        touchX1_finger2 = screenX/2;
+        touchY1_finger2 = screenY - rectSize - bulletLength;
+
+        player1 = new Player(touchX1_finger1, touchY1_finger1, rectSize);
+        player2 = new Player(touchX1_finger2, touchY1_finger2, rectSize);
+
+        //Reset Variables
+        player1WinCount = 0;
+        player2WinCount = 0;
+
+        menu = false;
     }
 }
