@@ -109,8 +109,6 @@ class GameView extends SurfaceView implements Runnable {
         paint = new Paint();
 
         //Spieler erzeugen
-        player1 = new Player();
-        player2 = new Player();
         lastPlayerWon = -1;
         player1Bullets = new Bullet[BULLET_COUNT];
         player2Bullets = new Bullet[BULLET_COUNT];
@@ -229,10 +227,13 @@ class GameView extends SurfaceView implements Runnable {
 
         //Starting positions for ships
         touchX1_finger1 = screenX/2;
-        touchY1_finger1 = 0;
+        touchY1_finger1 = 0 + rectSize + bulletLength;
 
         touchX1_finger2 = screenX/2;
-        touchY1_finger2 = screenY;
+        touchY1_finger2 = screenY - rectSize - bulletLength;
+
+        player1 = new Player(touchX1_finger1, touchY1_finger1, rectSize);
+        player2 = new Player(touchX1_finger2, touchY1_finger2, rectSize);
 
         //Textproperties
         textSize = getScaledBitmapSize(screenX, 1080, 50);
@@ -246,6 +247,11 @@ class GameView extends SurfaceView implements Runnable {
 
     //Alle Berechnungen der App
     private void update() {
+        //Spieler Schiffe
+        player1.updateShip(touchX1_finger1, touchY1_finger1, fps);
+        player2.updateShip(touchX1_finger2, touchY1_finger2, fps);
+        //BULLETS:
+
         //Damit Pause nicht die Abschussgeschwindigkeit beeinflusst
         if (pauseTimer > 0) {
             bulletTimer -= pauseTimer - System.currentTimeMillis();
@@ -258,12 +264,12 @@ class GameView extends SurfaceView implements Runnable {
             for (int i = 0; i < BULLET_COUNT; i++) {
                 //Bullets von Player1 kommen von oben
                 if (player1Bullets[i] == null && !tmp1) {
-                    player1Bullets[i] = new Bullet(screenY, touchX1_finger1 - (bulletWidth / 2), touchY1_finger1 + rectSize, bulletLength);
+                    player1Bullets[i] = new Bullet(screenY, player1.getShipX() - (bulletWidth / 2), player1.getShipY() + rectSize, bulletLength);
                     tmp1 = true;
                 }
                 //Bullets von Player2 kommen von unten
                 if (player2Bullets[i] == null && !tmp2) {
-                    player2Bullets[i] = new Bullet(screenY, touchX1_finger2 - (bulletWidth / 2), touchY1_finger2 - rectSize - bulletLength, bulletLength);
+                    player2Bullets[i] = new Bullet(screenY, player2.getShipX() - (bulletWidth / 2), player2.getShipY() - rectSize - bulletLength, bulletLength);
                     tmp2 = true;
                 }
                 if (tmp1 && tmp2) {
@@ -288,8 +294,8 @@ class GameView extends SurfaceView implements Runnable {
                 player1Bullets[i] = null;
             }
             //Spieler 2 getroffen?
-            if (player1Bullets[i] != null && player1Bullets[i].getY() >= touchY1_finger2 - rectSize - bulletLength && player1Bullets[i].getY() < touchY1_finger2 + rectSize) { //Gegner Höhe getroffen
-                if (player1Bullets[i].getX() >= touchX1_finger2 - rectSize - bulletWidth && player1Bullets[i].getX() < touchX1_finger2 + rectSize) { //Gegner Breite getroffen
+            if (player1Bullets[i] != null && player1Bullets[i].getY() >= player2.getShipY() - rectSize - bulletLength && player1Bullets[i].getY() < player2.getShipY() + rectSize) { //Gegner Höhe getroffen
+                if (player1Bullets[i].getX() >= player2.getShipX() - rectSize - bulletWidth && player1Bullets[i].getX() < player2.getShipX() + rectSize) { //Gegner Breite getroffen
                     player1Bullets[i] = null;
                     player2.setHitpoints(-10);
                 }
@@ -300,8 +306,8 @@ class GameView extends SurfaceView implements Runnable {
                 player2Bullets[i] = null;
             }
             //Spieler 1 getroffen?
-            if (player2Bullets[i] != null && player2Bullets[i].getY() >= touchY1_finger1 - rectSize - bulletLength && player2Bullets[i].getY() < touchY1_finger1 + rectSize) { //Gegner Höhe getroffen
-                if (player2Bullets[i].getX() >= touchX1_finger1 - rectSize - bulletWidth && player2Bullets[i].getX() < touchX1_finger1 + rectSize) { //Gegner Breite getroffen
+            if (player2Bullets[i] != null && player2Bullets[i].getY() >= player1.getShipY() - rectSize - bulletLength && player2Bullets[i].getY() < player1.getShipY() + rectSize) { //Gegner Höhe getroffen
+                if (player2Bullets[i].getX() >= player1.getShipX() - rectSize - bulletWidth && player2Bullets[i].getX() < player1.getShipX() + rectSize) { //Gegner Breite getroffen
                     player2Bullets[i] = null;
                     player1.setHitpoints(-10);
                 }
@@ -322,8 +328,8 @@ class GameView extends SurfaceView implements Runnable {
     }
 
     private void finishGame() {
-        player1.resetHitpoints();
-        player2.resetHitpoints();
+        player1 = new Player(touchX1_finger1, touchY1_finger1, rectSize);
+        player2 = new Player(touchX1_finger2, touchY1_finger2, rectSize);
 
         for (int i = 0; i < BULLET_COUNT; i++) {
             player1Bullets[i] = null;
@@ -351,8 +357,8 @@ class GameView extends SurfaceView implements Runnable {
                 //Spielerobjekte
                 paint.setColor(Color.argb(255, 0, 0, 0));
                 paint.setStyle(Paint.Style.FILL_AND_STROKE);
-                canvas.drawRect(touchX1_finger1 - rectSize, touchY1_finger1 - rectSize, touchX1_finger1 + rectSize, touchY1_finger1 + rectSize, paint);
-                canvas.drawRect(touchX1_finger2 - rectSize, touchY1_finger2 - rectSize, touchX1_finger2 + rectSize, touchY1_finger2 + rectSize, paint);
+                canvas.drawRect(player1.getShipX() - rectSize, player1.getShipY() - rectSize, player1.getShipX() + rectSize, player1.getShipY() + rectSize, paint);
+                canvas.drawRect(player2.getShipX() - rectSize, player2.getShipY() - rectSize, player2.getShipX() + rectSize, player2.getShipY() + rectSize, paint);
 
                 //Bullets
                 for (int i = 0; i < BULLET_COUNT; i++) {
