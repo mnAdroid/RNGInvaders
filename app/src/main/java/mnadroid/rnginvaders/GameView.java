@@ -258,7 +258,7 @@ class GameView extends SurfaceView implements Runnable {
             pauseTimer = 0;
         }
         //Neue Schüsse erstellen SHOOT!
-        if (System.currentTimeMillis() - bulletTimer >= 500) { //Alle 250 Millisekunden wird zurück geschossen
+        if (System.currentTimeMillis() - bulletTimer >= 350) { //Alle 250 Millisekunden wird zurück geschossen
             boolean tmp1 = false;
             boolean tmp2 = false;
             for (int i = 0; i < BULLET_COUNT; i++) {

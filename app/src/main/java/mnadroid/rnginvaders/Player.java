@@ -15,7 +15,7 @@ class Player {
         hitpoints = 100;
         shipX = startX;
         shipY = startY;
-        this.speed = speed * 14;
+        this.speed = speed * 28;
     }
 
     int getHitpoints() {
@@ -31,12 +31,15 @@ class Player {
         float dx = shipX - fingerX;
         float dy = shipY - fingerY;
 
-        Log.d("dx", "" + dx);
-        Log.d("dy", "" + dy);
-        Log.d("dx/dy", "" + dx/dy);
-        Log.d("dy/dx", "" + dy/dx);
+        float speedX, speedY;
+
+        speedX = (dx / (Math.abs(dx) + Math.abs(dy)))*speed;
+        speedY = (dy / (Math.abs(dx) + Math.abs(dy)))*speed;
+
         Log.d("speed", "" + speed);
-        Log.d("speedCalc", "" + (Math.abs(speed * (dx/dy)/speed)));
+        Log.d("dx importance", "" + (dx / (Math.abs(dx) + Math.abs(dy))));
+        Log.d("dy importance", "" + (dy / (Math.abs(dx) + Math.abs(dy))));
+        Log.d("speedCalc", "" + ((dx / (Math.abs(dx) + Math.abs(dy)))*speed + (dy / (Math.abs(dx) + Math.abs(dy)))*speed));
 
         //Wenn es nicht weit weg ist kann man einfach auf Finger setzen
         if (Math.abs(dx) + Math.abs(dy) <= speed/fps) {
@@ -44,27 +47,9 @@ class Player {
             shipY = fingerY;
             return;
         }
-        //Sonst wird so weit bewegt wir pro frame möglich
-        if (dx < 0) {
-            shipX += speed/fps;
-        }
         else {
-            shipX -= speed/fps;
-        }
-
-        if (dy < 0) {
-            shipY += speed/fps;
-        }
-        else {
-            shipY -= speed/fps;
-        }
-        //Wenn nur x sehr nah dran ist setzen wir nur X auf Finger
-        if (Math.abs(dx) <= speed/fps) {
-            shipX = fingerX;
-        }
-        //Wenn nur y sehr nah dran ist setzn wir nur Y auf Finger
-        if (Math.abs(dy) <= speed/fps) {
-            shipY = fingerY;
+            shipX -= speedX/fps;
+            shipY -= speedY/fps;
         }
     }
 
