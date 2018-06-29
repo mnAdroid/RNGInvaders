@@ -57,6 +57,7 @@ class GameView extends SurfaceView implements Runnable {
     private boolean loaded;
     //Ist gerade Pause?
     private boolean pause;
+    private long pauseTimer; //Um gleichmäßiges Schießsen trotz Pause zu ermöglichen
 
     //Musiksettings
     private boolean musicOn;
@@ -118,6 +119,8 @@ class GameView extends SurfaceView implements Runnable {
     //App wird (wieder) gestartet
     void resume() {
         isPlaying = true;
+        pause = true;
+        pauseTimer = System.currentTimeMillis();
 
         //gespeicherte Variablen auslesen
         getSharedPreferences();
@@ -160,6 +163,7 @@ class GameView extends SurfaceView implements Runnable {
     void onBackPressed() {
         //Pause
         pause = true;
+        pauseTimer = System.currentTimeMillis();
 
         //Variablen abspeichern
         setSharedPrefernces();
@@ -181,8 +185,10 @@ class GameView extends SurfaceView implements Runnable {
             //Alles wird gezeichnet
             draw();
 
-            //Alle Berechnungen werden begangen
-            update();
+            if (!pause) {
+                //Alle Berechnungen werden begangen
+                update();
+            }
 
             //FPS Berechnung
             long timeThisFrame = System.currentTimeMillis() - startFrameTime;
@@ -219,7 +225,7 @@ class GameView extends SurfaceView implements Runnable {
 
         //Size of Bullets
         bulletWidth = getScaledBitmapSize(screenX, 1080, 25);
-        bulletLength = getScaledBitmapSize(screenY, 1920, 75);
+        bulletLength = getScaledBitmapSize(screenY, 1920, 25);
 
         //Starting positions for ships
         touchX1_finger1 = screenX/2;
@@ -240,17 +246,24 @@ class GameView extends SurfaceView implements Runnable {
 
     //Alle Berechnungen der App
     private void update() {
+        //Damit Pause nicht die Abschussgeschwindigkeit beeinflusst
+        if (pauseTimer > 0) {
+            bulletTimer -= pauseTimer - System.currentTimeMillis();
+            pauseTimer = 0;
+        }
         //Neue Schüsse erstellen SHOOT!
         if (System.currentTimeMillis() - bulletTimer >= 500) { //Alle 250 Millisekunden wird zurück geschossen
             boolean tmp1 = false;
             boolean tmp2 = false;
             for (int i = 0; i < BULLET_COUNT; i++) {
+                //Bullets von Player1 kommen von oben
                 if (player1Bullets[i] == null && !tmp1) {
-                    player1Bullets[i] = new Bullet(screenY, touchX1_finger1, touchY1_finger1, bulletLength);
+                    player1Bullets[i] = new Bullet(screenY, touchX1_finger1 - (bulletWidth / 2), touchY1_finger1 + rectSize, bulletLength);
                     tmp1 = true;
                 }
+                //Bullets von Player2 kommen von unten
                 if (player2Bullets[i] == null && !tmp2) {
-                    player2Bullets[i] = new Bullet(screenY, touchX1_finger2, touchY1_finger2 - rectSize, bulletLength);
+                    player2Bullets[i] = new Bullet(screenY, touchX1_finger2 - (bulletWidth / 2), touchY1_finger2 - rectSize - bulletLength, bulletLength);
                     tmp2 = true;
                 }
                 if (tmp1 && tmp2) {
@@ -270,7 +283,7 @@ class GameView extends SurfaceView implements Runnable {
 
         //Collision Detection
         for (int i = 0; i < BULLET_COUNT; i++) {
-            //Bullet von Player1 kommen von oben
+            //Bullets von Player1 kommen von oben
             if (player1Bullets[i] != null && player1Bullets[i].getY() >= screenY + bulletLength) { //Unten raus
                 player1Bullets[i] = null;
             }
@@ -282,7 +295,7 @@ class GameView extends SurfaceView implements Runnable {
                 }
             }
 
-            //Bullet von Player2 kommen von unten
+            //Bullets von Player2 kommen von unten
             if (player2Bullets[i] != null && player2Bullets[i].getY() < -bulletLength) { //Oben raus
                 player2Bullets[i] = null;
             }
@@ -297,15 +310,24 @@ class GameView extends SurfaceView implements Runnable {
 
         //died player 1?
         if (player1.getHitpoints() <= 0) {
-            player1.resetHitpoints();
-            player2.resetHitpoints();
+            finishGame();
             lastPlayerWon = 1;
+
         }
         //died player 2?
         if (player2.getHitpoints() <= 0) {
-            player1.resetHitpoints();
-            player2.resetHitpoints();
+            finishGame();
             lastPlayerWon = 2;
+        }
+    }
+
+    private void finishGame() {
+        player1.resetHitpoints();
+        player2.resetHitpoints();
+
+        for (int i = 0; i < BULLET_COUNT; i++) {
+            player1Bullets[i] = null;
+            player2Bullets[i] = null;
         }
     }
 
@@ -356,7 +378,7 @@ class GameView extends SurfaceView implements Runnable {
                 //is there a recent winner?
                 if(lastPlayerWon > 0) {
                     paint.setTextSize(textSize);
-                    canvas.drawText("Player " + lastPlayerWon + " won!", scoreX, scoreY + bulletLength, paint);
+                    canvas.drawText("Player " + lastPlayerWon + " won!", scoreX, scoreY + 3 * bulletLength, paint);
                 }
 
             } catch (NullPointerException e) {
@@ -379,6 +401,7 @@ class GameView extends SurfaceView implements Runnable {
 
         //Finger bedeutet LOS
         pause = false;
+
 
         //Welcher Finger bewegt sich?
         pointerIndex = (motionEvent.getAction() & MotionEvent.ACTION_POINTER_INDEX_MASK)
@@ -449,12 +472,14 @@ class GameView extends SurfaceView implements Runnable {
                     //onBackPressed();
                     finger1_index = INVALID_POINTER_ID;
                     pause = true;
+                    pauseTimer = System.currentTimeMillis();
                 }
 
                  else if (pointerId == finger2_index) {
                     //onBackPressed();
                     finger2_index = INVALID_POINTER_ID;
                     pause = true;
+                    pauseTimer = System.currentTimeMillis();
                 }
 
                 return true;
@@ -465,12 +490,14 @@ class GameView extends SurfaceView implements Runnable {
                     //onBackPressed();
                     finger1_index = INVALID_POINTER_ID;
                     pause = true;
+                    pauseTimer = System.currentTimeMillis();
                 }
 
                 else if (pointerId == finger2_index) {
                     //onBackPressed();
                     finger2_index = INVALID_POINTER_ID;
                     pause = true;
+                    pauseTimer = System.currentTimeMillis();
                 }
 
                 return true;
