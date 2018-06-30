@@ -1,6 +1,6 @@
 package mnadroid.rnginvaders;
 
-import android.util.Log;
+import android.graphics.Color;
 
 class Player {
     //Wie viele Leben hat der Spieler
@@ -11,13 +11,32 @@ class Player {
     //Wie schnell bewegt sich so ein Schiff
     private float speed;
 
-    Player(float startX, float startY, float speed) {
+    //Ist der Spieler bereit ins Spiel zu gehen?
+    private boolean ready;
+
+    //Wie oft hat der Spieler in dem Match gewonnen?
+    private int winCount;
+
+    private int shipColor;
+    private boolean shipColorPicker;
+
+    Player(float startX, float startY, float speed, int color) {
         hitpoints = 100;
         shipX = startX;
         shipY = startY;
         this.speed = speed * 28;
+        ready = false;
+        winCount = 0;
+        shipColor = color;
+        shipColorPicker = false;
     }
 
+    void resetRound(float startX, float startY) {
+        hitpoints = 100;
+        shipX = startX;
+        shipY = startY;
+        shipColorPicker = false;
+    }
     int getHitpoints() {
         return hitpoints;
     }
@@ -42,7 +61,6 @@ class Player {
         if (Math.abs(dx) + Math.abs(dy) <= speed/fps) {
             shipX = fingerX;
             shipY = fingerY;
-            return;
         }
         else {
             shipX -= speedX/fps;
@@ -56,5 +74,37 @@ class Player {
 
     float getShipY() {
         return shipY;
+    }
+
+    boolean getReady() {
+        return ready;
+    }
+
+    void setReady() {
+        ready = !ready;
+    }
+
+    int getWinCount() {
+        return winCount;
+    }
+
+    void setWinCount() {
+        winCount++;
+    }
+
+    int getShipColor() {
+        return shipColor;
+    }
+
+    void setShipColor(int color) {
+        shipColor = color;
+    }
+
+    boolean getShipColorPicker() {
+        return getShipColorPicker();
+    }
+
+    void setShipColorPicker() {
+        shipColorPicker = !shipColorPicker;
     }
 }
